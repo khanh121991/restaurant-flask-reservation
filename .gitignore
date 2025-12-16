@@ -1,0 +1,15 @@
+# Python environment files
+venv/
+__pycache__/
+*.pyc
+
+# Database file - RENDER REQUIRES POSTGRES, SO WE IGNORE LOCAL SQLITE
+reservations.db
+
+# Flask/OS files
+.flaskenv
+instance/
+.env
+
+# Secrets (replace with your actual secret file names if needed)
+secrets.py

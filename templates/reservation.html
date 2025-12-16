@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Reservation</title>
+
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        /* Ensures all input types (text, email, number, tel) and textarea are 100% width */
+        input[type="text"],
+        input[type="email"],
+        input[type="number"],
+        input[type="tel"],
+        textarea,
+        .flatpickr-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input:invalid:focus { border-color: red; box-shadow: 0 0 5px rgba(255, 0, 0, 0.5); }
+        button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        .flash { padding: 10px; margin-bottom: 15px; border-radius: 4px; }
+        .flash.success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+        .flash.error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; }
+    </style>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_green.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Book a Table at Mate Restaurant</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('reservation') }}">
+
+            <div class="form-group">
+                <label for="name">Your Name:</label>
+                <input type="text" id="name" name="name" required placeholder="John Doe">
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Phone Number (e.g., +1 555 123 4567):</label>
+                <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    placeholder="+1 555 123 4567"
+                    pattern="^\+\d{1,3} ?\d{3,} ?\d{3,}$"
+                    required
+                    title="Please use international format, e.g., +1 555 123 4567">
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email (Required for confirmation):</label>
+                <input type="email" id="email" name="email" required placeholder="yourmail@example.com">
+            </div>
+
+            <div class="form-group">
+                <label for="date_input">Date:</label>
+                <input type="text" id="date_input" name="date" placeholder="Select date..." required>
+            </div>
+
+            <div class="form-group">
+                <label for="time_input">Time (We accept reservations from 11:00 to 21:00):</label>
+                <input type="text" id="time_input" name="time" placeholder="Select time..." required>
+            </div>
+
+            <div class="form-group">
+                <label for="guests">Number of Guests:</label>
+                <input type="number" id="guests" name="guests" min="1" value="1" required>
+            </div>
+
+            <div class="form-group" style="border: 1px dashed #e0e0e0; padding: 10px; border-radius: 4px;">
+                <label style="margin-bottom: 10px;">Your Dietary Restrictions (Optional):</label>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 15px;">
+                    {% set restrictions = ['Vegan', 'Vegetarian', 'Gluten free', 'Seafood allergy', 'Peanut allergy'] %}
+
+                    {% for restriction in restrictions %}
+                        <label style="display: flex; align-items: center; font-weight: normal; margin-bottom: 0;">
+                            <input type="checkbox" name="diet" value="{{ restriction }}" style="margin-right: 5px; width: auto;">
+                            {{ restriction }}
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="special_request">What is your request?</label>
+                <textarea
+                    id="special_request"
+                    name="special_request"
+                    rows="4"
+                    placeholder="e.g., Allergies, baby chair needed, birthday celebration, table near window..."
+                ></textarea>
+            </div>
+
+            <button type="submit" style="margin-top: 20px;">Confirm Booking</button>
+
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        // Lấy thời gian hiện tại và làm tròn phút lên đến bội số tiếp theo của 30
+        function getCurrentMinTime() {
+            const now = new Date();
+            let minutes = now.getMinutes();
+            let hours = now.getHours();
+
+            // Nếu phút > 30, làm tròn lên đến giờ tiếp theo và đặt phút là 00
+            if (minutes > 30) {
+                hours += 1;
+                minutes = 0;
+            }
+            // Nếu phút <= 30 và > 0, làm tròn lên đến :30
+            else if (minutes > 0) {
+                minutes = 30;
+            }
+            // Nếu phút là 0, giữ nguyên
+
+            // Format thành HH:mm
+            const pad = (num) => num < 10 ? '0' + num : num;
+            return `${pad(hours)}:${pad(minutes)}`;
+        }
+
+        let timePicker;
+
+        // --- 1. Initialize Date Picker ---
+        const datePicker = flatpickr("#date_input", {
+            dateFormat: "Y-m-d",
+            minDate: "today",
+            disable: [
+                function(date) {
+                    // Disable Sundays
+                    return (date.getDay() === 0);
+                }
+            ],
+            locale: {
+                firstDayOfWeek: 1
+            },
+
+            // --- LOGIC QUAN TRỌNG: Xử lý thay đổi ngày ---
+            onChange: function(selectedDates, dateStr, instance) {
+                const today = new Date();
+                // Chỉ lấy phần ngày (year, month, day) để so sánh
+                const selectedDay = new Date(selectedDates[0].toDateString());
+                const currentDay = new Date(today.toDateString());
+
+                // Nếu ngày được chọn là ngày hôm nay
+                if (selectedDay.getTime() === currentDay.getTime()) {
+                    // Đặt thời gian bắt đầu tối thiểu là giờ hiện tại (đã làm tròn)
+                    const minTime = getCurrentMinTime();
+                    timePicker.set("minTime", minTime);
+                } else {
+                    // Nếu là ngày khác, đặt lại thời gian tối thiểu theo cấu hình ban đầu
+                    timePicker.set("minTime", "10:00");
+                }
+
+                // Cập nhật lại giá trị hiển thị nếu giá trị hiện tại không hợp lệ (ví dụ: đang là 11:00, nhưng giờ tối thiểu mới là 12:00)
+                if (timePicker.selectedDates.length > 0) {
+                     timePicker.setDate(timePicker.selectedDates[0], false);
+                }
+            }
+        });
+
+        // --- 2. Initialize Time Picker ---
+        timePicker = flatpickr("#time_input", {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: "H:i",
+            time_24hr: true,
+            minuteIncrement: 30,
+            minTime: getCurrentMinTime(), // Khởi tạo minTime ban đầu là giờ hiện tại (đã làm tròn)
+            maxTime: "22:00"
+        });
+    </script>
+</body>
+</html>
