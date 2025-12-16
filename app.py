@@ -11,12 +11,22 @@ app.secret_key = 'your_secret_key_here_for_security'
 # Set absolute path for the database file to prevent location errors
 # CẤU HÌNH MỚI (PostgreSQL - Dùng biến môi trường)
 # Đọc URL database từ biến môi trường của Render
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or 'sqlite:///reservations.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Đọc URL database từ biến môi trường
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-# Xử lý trường hợp Render sử dụng schema 'postgres://' thay vì 'postgresql://'
-if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://')
+if DATABASE_URL:
+    # 1. Xử lý schema: thay thế 'postgres://' bằng 'postgresql://' (SQLAlchemy yêu cầu)
+    if DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+    # 2. Xử lý SSL (QUAN TRỌNG: Khắc phục lỗi SSL error trên Render)
+    # Thêm tham số truy vấn 'sslmode=require' để buộc kết nối SSL an toàn
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL + '?sslmode=require'
+else:
+    # Fallback cho môi trường phát triển cục bộ (local development)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///reservations.db'
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Đảm bảo bạn đã import os ở đầu file
 import os
